@@ -1,295 +1,669 @@
+"""
+Supermarket Sales Prediction App
+================================
+A beautiful Streamlit application for predicting supermarket sales
+using a trained Random Forest model.
+
+Author: AI Assistant
+"""
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import os
+from datetime import datetime, time
 
-# Page configuration
+# ============================================
+# Page Configuration
+# ============================================
 st.set_page_config(
-    page_title="Supermarket Sales Prediction",
+    page_title="🛒 Supermarket Sales Predictor",
     page_icon="🛒",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# ============================================
+# Custom CSS Styling
+# ============================================
 st.markdown("""
-    <style>
-    .main-header {
-        font-size: 3rem;
-        font-weight: bold;
-        color: #1f77b4;
+<style>
+    /* Import custom fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+Pro:wght@300;400;600&display=swap');
+    
+    /* Main background with gradient */
+    .stApp {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    }
+    
+    /* Headers styling */
+    h1 {
+        font-family: 'Playfair Display', serif !important;
+        color: #e94560 !important;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        font-weight: 700 !important;
+    }
+    
+    h2, h3 {
+        font-family: 'Playfair Display', serif !important;
+        color: #edf2f4 !important;
+    }
+    
+    /* Body text */
+    p, label, .stMarkdown {
+        font-family: 'Source Sans Pro', sans-serif !important;
+        color: #edf2f4 !important;
+    }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f3460 0%, #16213e 100%);
+        border-right: 2px solid #e94560;
+    }
+    
+    [data-testid="stSidebar"] .stMarkdown h2 {
+        color: #e94560 !important;
+        border-bottom: 2px solid #e94560;
+        padding-bottom: 10px;
+    }
+    
+    /* Input fields styling */
+    .stSelectbox > div > div,
+    .stNumberInput > div > div > input,
+    .stDateInput > div > div > input,
+    .stTimeInput > div > div > input {
+        background-color: #1a1a2e !important;
+        color: #edf2f4 !important;
+        border: 1px solid #e94560 !important;
+        border-radius: 10px !important;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(90deg, #e94560 0%, #ff6b6b 100%) !important;
+        color: white !important;
+        font-family: 'Source Sans Pro', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 18px !important;
+        padding: 15px 40px !important;
+        border-radius: 30px !important;
+        border: none !important;
+        box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4) !important;
+        transition: all 0.3s ease !important;
+        width: 100% !important;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(233, 69, 96, 0.6) !important;
+    }
+    
+    /* Metric card styling */
+    [data-testid="stMetricValue"] {
+        font-family: 'Playfair Display', serif !important;
+        color: #e94560 !important;
+        font-size: 3rem !important;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        color: #edf2f4 !important;
+    }
+    
+    /* Success/Info boxes */
+    .stAlert {
+        background-color: rgba(233, 69, 96, 0.1) !important;
+        border: 1px solid #e94560 !important;
+        border-radius: 15px !important;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background-color: rgba(15, 52, 96, 0.5) !important;
+        border-radius: 10px !important;
+        color: #e94560 !important;
+    }
+    
+    /* Card container */
+    .prediction-card {
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid #e94560;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(233, 69, 96, 0.2);
         text-align: center;
-        margin-bottom: 2rem;
+        margin: 20px 0;
     }
-    .prediction-box {
-        background-color: #f0f2f6;
-        padding: 2rem;
-        border-radius: 10px;
-        border: 2px solid #1f77b4;
+    
+    .info-card {
+        background: rgba(15, 52, 96, 0.5);
+        border-left: 4px solid #e94560;
+        padding: 15px 20px;
+        margin: 10px 0;
+        border-radius: 0 10px 10px 0;
+    }
+    
+    /* Animation */
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .pulse-animation {
+        animation: pulse 2s infinite;
+    }
+    
+    /* Footer */
+    .footer {
         text-align: center;
-        margin-top: 2rem;
+        padding: 20px;
+        color: #8d99ae;
+        font-size: 14px;
+        border-top: 1px solid #e94560;
+        margin-top: 50px;
     }
-    .prediction-value {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
-        margin-top: 1rem;
-    }
-    .stButton>button {
-        width: 100%;
-        background-color: #1f77b4;
-        color: white;
-        font-size: 1.2rem;
-        padding: 0.5rem;
-        border-radius: 5px;
-    }
-    .stButton>button:hover {
-        background-color: #1565c0;
-    }
-    </style>
+</style>
 """, unsafe_allow_html=True)
 
-# Load model and preprocessor
+# ============================================
+# Load Model and Get Training Columns
+# ============================================
 @st.cache_resource
-def load_model_and_preprocessor():
-    """Load the trained model and preprocessor"""
+def load_model_and_columns():
+    """
+    Load the trained Random Forest model and prepare the column structure
+    that was used during training.
+    """
     try:
-        model_path = os.path.join('ML_Model', 'GradientBoostingRegressor.pkl')
-        preprocessor_path = os.path.join('ML_Model', 'preprocessor.pkl')
+        # Load the pipeline
+        pipeline = joblib.load('ML_Model/random_forest_pipeline.pkl')
         
-        model = joblib.load(model_path)
-        preprocessor = joblib.load(preprocessor_path)
+        # Extract just the Random Forest model from the pipeline
+        rf_model = pipeline.named_steps['model']
         
-        return model, preprocessor
+        # Define the exact columns used during training (from notebook analysis)
+        # These are the one-hot encoded column names that the model expects
+        training_columns = get_training_columns()
+        
+        return rf_model, training_columns
+    except FileNotFoundError:
+        st.error("⚠️ Model file not found! Please ensure 'ML_Model/random_forest_pipeline.pkl' exists.")
+        return None, None
     except Exception as e:
-        st.error(f"Error loading model or preprocessor: {str(e)}")
-        st.stop()
+        st.error(f"⚠️ Error loading model: {str(e)}")
+        return None, None
 
-# Feature engineering function
-def create_features(data):
-    """Create engineered features matching the training pipeline"""
-    df = data.copy()
+def get_training_columns():
+    """
+    Returns the exact column structure used during model training.
+    This matches the one-hot encoded columns from the notebook.
+    """
+    # Categorical columns and their values (from the dataset)
+    branch_values = ['Alex', 'Cairo', 'Giza']
+    city_values = ['Mandalay', 'Naypyitaw', 'Yangon']
+    customer_type_values = ['Member', 'Normal']
+    gender_values = ['Female', 'Male']
+    product_line_values = ['Electronic accessories', 'Fashion accessories', 
+                           'Food and beverages', 'Health and beauty', 
+                           'Home and lifestyle', 'Sports and travel']
+    payment_values = ['Cash', 'Credit card', 'Ewallet']
+    time_of_day_values = ['Afternoon', 'Evening', 'Morning', 'Night']
     
-    # Extract Item_Category from Item_ID (first 2 characters)
-    item_category_map = {
-        'FD': 'Food',
-        'DR': 'Drinks',
-        'NC': 'Non-Consumable'
-    }
-    df['Item_Category'] = df['Item_ID'].str[:2].map(item_category_map)
+    # Generate all possible interaction feature values
+    product_time_values = [f"{p}_{t}" for p in product_line_values for t in time_of_day_values]
+    product_gender_values = [f"{p}_{g}" for p in product_line_values for g in gender_values]
+    branch_time_values = [f"{b}_{t}" for b in branch_values for t in time_of_day_values]
     
-    # Handle invalid Item_ID format - default to 'Food' if mapping fails
-    if df['Item_Category'].isna().any():
-        df['Item_Category'] = df['Item_Category'].fillna('Food')
+    # Numerical columns
+    numerical_cols = ['Unit price', 'Quantity', 'Rating', 'DayOfWeek', 'Day', 'Month', 'Hour']
     
-    # Create MRP_Weight interaction feature
-    df['MRP_Weight'] = df['Item_MRP'] * df['Item_W']
+    # Build the full column list (matching pd.get_dummies output order)
+    columns = numerical_cols.copy()
     
-    # Create one-hot encoded Item_Type columns
-    # List of all Item_Type columns in the exact order expected by the model
-    # Note: 'Baking Goods' is the reference category (dropped with drop_first=True)
-    item_type_columns = [
-        'Item_Type_Breads', 'Item_Type_Breakfast', 'Item_Type_Canned', 
-        'Item_Type_Dairy', 'Item_Type_Frozen Foods', 'Item_Type_Fruits and Vegetables',
-        'Item_Type_Hard Drinks', 'Item_Type_Health and Hygiene', 'Item_Type_Household',
-        'Item_Type_Meat', 'Item_Type_Others', 'Item_Type_Seafood', 
-        'Item_Type_Snack Foods', 'Item_Type_Soft Drinks', 'Item_Type_Starchy Foods'
-    ]
+    # Add one-hot encoded columns
+    for val in branch_values:
+        columns.append(f'Branch_{val}')
+    for val in city_values:
+        columns.append(f'City_{val}')
+    for val in customer_type_values:
+        columns.append(f'Customer type_{val}')
+    for val in gender_values:
+        columns.append(f'Gender_{val}')
+    for val in product_line_values:
+        columns.append(f'Product line_{val}')
+    for val in payment_values:
+        columns.append(f'Payment_{val}')
+    for val in time_of_day_values:
+        columns.append(f'TimeOfDay_{val}')
+    for val in sorted(product_time_values):
+        columns.append(f'ProductLine_TimeOfDay_{val}')
+    for val in sorted(product_gender_values):
+        columns.append(f'ProductLine_Gender_{val}')
+    for val in sorted(branch_time_values):
+        columns.append(f'Branch_TimeOfDay_{val}')
     
-    # Initialize all Item_Type columns to 0
-    for col in item_type_columns:
-        df[col] = 0
-    
-    # Set the appropriate Item_Type column to 1 based on input
-    item_type_mapping = {
-        'Baking Goods': None,  # Reference category (dropped)
-        'Breads': 'Item_Type_Breads',
-        'Breakfast': 'Item_Type_Breakfast',
-        'Canned': 'Item_Type_Canned',
-        'Dairy': 'Item_Type_Dairy',
-        'Frozen Foods': 'Item_Type_Frozen Foods',
-        'Fruits and Vegetables': 'Item_Type_Fruits and Vegetables',
-        'Hard Drinks': 'Item_Type_Hard Drinks',
-        'Health and Hygiene': 'Item_Type_Health and Hygiene',
-        'Household': 'Item_Type_Household',
-        'Meat': 'Item_Type_Meat',
-        'Others': 'Item_Type_Others',
-        'Seafood': 'Item_Type_Seafood',
-        'Snack Foods': 'Item_Type_Snack Foods',
-        'Soft Drinks': 'Item_Type_Soft Drinks',
-        'Starchy Foods': 'Item_Type_Starchy Foods'
-    }
-    
-    if df['Item_Type'].iloc[0] in item_type_mapping and item_type_mapping[df['Item_Type'].iloc[0]]:
-        df[item_type_mapping[df['Item_Type'].iloc[0]]] = 1
-    
-    # Features that depend on Sales or Outlet_Year (not available at prediction time)
-    # Set to 0 - preprocessor will handle imputation if needed
-    df['MRP_Sales_interaction'] = 0
-    df['MRP_OutletYear_interaction'] = 0
-    df['Sales_MRPWeight_interaction'] = 0
-    
-    # Drop columns that are not used in the model
-    columns_to_drop = ['Item_ID', 'Item_Type']  # Item_Type is now one-hot encoded
-    df = df.drop(columns=[col for col in columns_to_drop if col in df.columns])
-    
-    # Ensure columns are in the exact order expected by the preprocessor
-    expected_columns = [
-        'Item_W', 'Item_MRP', 'Outlet_Size', 'Outlet_Location_Type', 'Item_Category',
-        'MRP_Weight', 'MRP_Sales_interaction', 'MRP_OutletYear_interaction', 
-        'Sales_MRPWeight_interaction'
-    ] + item_type_columns
-    
-    # Reorder columns to match expected order
-    df = df[[col for col in expected_columns if col in df.columns]]
-    
-    return df
+    return columns
 
+# ============================================
+# Helper Functions
+# ============================================
+def get_time_of_day(hour):
+    """Determine the time of day based on hour."""
+    if 5 <= hour < 12:
+        return 'Morning'
+    elif 12 <= hour < 17:
+        return 'Afternoon'
+    elif 17 <= hour < 21:
+        return 'Evening'
+    else:
+        return 'Night'
+
+def preprocess_input(inputs, training_columns):
+    """
+    Preprocess user inputs to match the exact format used during model training.
+    This replicates the preprocessing steps from the Jupyter notebook.
+    """
+    # Extract date components
+    day_of_week = inputs['date'].weekday()
+    day = inputs['date'].day
+    month = inputs['date'].month
+    hour = inputs['time'].hour
+    time_of_day = get_time_of_day(hour)
+    
+    # Create interaction features
+    product_line_time = f"{inputs['product_line']}_{time_of_day}"
+    product_line_gender = f"{inputs['product_line']}_{inputs['gender']}"
+    branch_time = f"{inputs['branch']}_{time_of_day}"
+    
+    # Create base DataFrame with raw values
+    data = {
+        'Unit price': [inputs['unit_price']],
+        'Quantity': [inputs['quantity']],
+        'Rating': [inputs['rating']],
+        'DayOfWeek': [day_of_week],
+        'Day': [day],
+        'Month': [month],
+        'Hour': [hour],
+        'Branch': [inputs['branch']],
+        'City': [inputs['city']],
+        'Customer type': [inputs['customer_type']],
+        'Gender': [inputs['gender']],
+        'Product line': [inputs['product_line']],
+        'Payment': [inputs['payment']],
+        'TimeOfDay': [time_of_day],
+        'ProductLine_TimeOfDay': [product_line_time],
+        'ProductLine_Gender': [product_line_gender],
+        'Branch_TimeOfDay': [branch_time]
+    }
+    
+    df = pd.DataFrame(data)
+    
+    # Apply one-hot encoding (same as pd.get_dummies in notebook)
+    categorical_cols = ['Branch', 'City', 'Customer type', 'Gender', 
+                        'Product line', 'Payment', 'TimeOfDay',
+                        'ProductLine_TimeOfDay', 'ProductLine_Gender', 'Branch_TimeOfDay']
+    
+    df_encoded = pd.get_dummies(df, columns=categorical_cols, drop_first=False)
+    
+    # Create a DataFrame with all training columns, initialized to 0
+    final_df = pd.DataFrame(0, index=[0], columns=training_columns)
+    
+    # Fill in the values we have
+    for col in df_encoded.columns:
+        if col in final_df.columns:
+            final_df[col] = df_encoded[col].values
+    
+    return final_df
+
+# ============================================
+# Main Application
+# ============================================
 def main():
-    # Header
-    st.markdown('<h1 class="main-header">🛒 Supermarket Sales Prediction</h1>', unsafe_allow_html=True)
-    st.markdown("---")
+    # Header Section
+    st.markdown("""
+        <div style="text-align: center; padding: 20px;">
+            <h1>🛒 Supermarket Sales Predictor</h1>
+            <p style="font-size: 1.2em; color: #8d99ae;">
+                Predict your sales with AI-powered machine learning
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
     
-    # Load model and preprocessor
-    model, preprocessor = load_model_and_preprocessor()
+    # Load the model
+    model, training_columns = load_model_and_columns()
     
-    # Sidebar for input
+    if model is None:
+        st.stop()
+    
+    # Sidebar - Input Section
     with st.sidebar:
-        st.header("📋 Input Parameters")
-        st.markdown("Enter the product and outlet details below:")
+        st.markdown("## 📝 Enter Transaction Details")
+        st.markdown("---")
         
-        # Item_ID input
-        item_id = st.text_input(
-            "Item ID",
-            value="FDX01",
-            help="Enter the Item ID (e.g., FDX01, DRX02, NCX03). First 2 characters determine category: FD=Food, DR=Drinks, NC=Non-Consumable"
+        # Store Information
+        st.markdown("### 🏪 Store Information")
+        
+        branch = st.selectbox(
+            "Branch",
+            options=["Alex", "Cairo", "Giza"],
+            help="Select the store branch"
         )
         
-        # Item_W input
-        item_w = st.number_input(
-            "Item Weight (Item_W)",
-            min_value=0.0,
-            value=12.0,
-            step=0.1,
-            format="%.2f",
-            help="Weight of the item"
-        )
-        
-        # Item_Type input
-        item_type = st.selectbox(
-            "Item Type",
-            options=[
-                'Baking Goods', 'Breads', 'Breakfast', 'Canned', 'Dairy',
-                'Frozen Foods', 'Fruits and Vegetables', 'Hard Drinks',
-                'Health and Hygiene', 'Household', 'Meat', 'Others',
-                'Seafood', 'Snack Foods', 'Soft Drinks', 'Starchy Foods'
-            ],
-            index=0,
-            help="Type of the item. Note: 'Baking Goods' is the reference category."
-        )
-        
-        # Item_MRP input
-        item_mrp = st.number_input(
-            "Item MRP (Maximum Retail Price)",
-            min_value=0.0,
-            value=100.0,
-            step=0.1,
-            format="%.2f",
-            help="Maximum Retail Price of the item"
-        )
-        
-        # Outlet_Size input
-        outlet_size = st.selectbox(
-            "Outlet Size",
-            options=['Small', 'Medium', 'High'],
-            index=0,
-            help="Size of the outlet"
-        )
-        
-        # Outlet_Location_Type input
-        outlet_location_type = st.selectbox(
-            "Outlet Location Type",
-            options=['Tier 1', 'Tier 2', 'Tier 3'],
-            index=0,
-            help="Location tier of the outlet"
+        city = st.selectbox(
+            "City",
+            options=["Yangon", "Mandalay", "Naypyitaw"],
+            help="Select the city location"
         )
         
         st.markdown("---")
-        predict_button = st.button("🔮 Predict Sales", type="primary")
+        
+        # Customer Information
+        st.markdown("### 👤 Customer Information")
+        
+        customer_type = st.selectbox(
+            "Customer Type",
+            options=["Member", "Normal"],
+            help="Member or Normal customer"
+        )
+        
+        gender = st.selectbox(
+            "Gender",
+            options=["Female", "Male"],
+            help="Customer gender"
+        )
+        
+        st.markdown("---")
+        
+        # Product Information
+        st.markdown("### 📦 Product Information")
+        
+        product_line = st.selectbox(
+            "Product Line",
+            options=[
+                "Health and beauty",
+                "Electronic accessories",
+                "Home and lifestyle",
+                "Sports and travel",
+                "Food and beverages",
+                "Fashion accessories"
+            ],
+            help="Select the product category"
+        )
+        
+        unit_price = st.number_input(
+            "Unit Price ($)",
+            min_value=10.0,
+            max_value=100.0,
+            value=50.0,
+            step=0.01,
+            help="Price per unit (10-100)"
+        )
+        
+        quantity = st.number_input(
+            "Quantity",
+            min_value=1,
+            max_value=10,
+            value=5,
+            step=1,
+            help="Number of items (1-10)"
+        )
+        
+        st.markdown("---")
+        
+        # Transaction Information
+        st.markdown("### 💳 Transaction Information")
+        
+        payment = st.selectbox(
+            "Payment Method",
+            options=["Ewallet", "Cash", "Credit card"],
+            help="Select payment method"
+        )
+        
+        rating = st.slider(
+            "Customer Rating",
+            min_value=1.0,
+            max_value=10.0,
+            value=7.0,
+            step=0.1,
+            help="Customer satisfaction rating (1-10)"
+        )
+        
+        st.markdown("---")
+        
+        # Date and Time
+        st.markdown("### 📅 Date & Time")
+        
+        transaction_date = st.date_input(
+            "Transaction Date",
+            value=datetime.now(),
+            help="Select the transaction date"
+        )
+        
+        transaction_time = st.time_input(
+            "Transaction Time",
+            value=time(12, 0),
+            help="Select the transaction time"
+        )
     
-    # Main content area
+    # Main Content Area
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader("📊 Prediction Details")
+        st.markdown("### 📊 Transaction Summary")
         
-        if predict_button:
+        # Display input summary in a nice format
+        summary_col1, summary_col2, summary_col3 = st.columns(3)
+        
+        with summary_col1:
+            st.markdown(f"""
+                <div class="info-card">
+                    <h4 style="color: #e94560; margin: 0;">🏪 Store</h4>
+                    <p style="margin: 5px 0;"><strong>Branch:</strong> {branch}</p>
+                    <p style="margin: 5px 0;"><strong>City:</strong> {city}</p>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with summary_col2:
+            st.markdown(f"""
+                <div class="info-card">
+                    <h4 style="color: #e94560; margin: 0;">👤 Customer</h4>
+                    <p style="margin: 5px 0;"><strong>Type:</strong> {customer_type}</p>
+                    <p style="margin: 5px 0;"><strong>Gender:</strong> {gender}</p>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with summary_col3:
+            st.markdown(f"""
+                <div class="info-card">
+                    <h4 style="color: #e94560; margin: 0;">📦 Product</h4>
+                    <p style="margin: 5px 0;"><strong>Line:</strong> {product_line}</p>
+                    <p style="margin: 5px 0;"><strong>Payment:</strong> {payment}</p>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        # Product details
+        st.markdown("### 💰 Product Details")
+        
+        detail_col1, detail_col2, detail_col3, detail_col4 = st.columns(4)
+        
+        with detail_col1:
+            st.metric("Unit Price", f"${unit_price:.2f}")
+        
+        with detail_col2:
+            st.metric("Quantity", f"{quantity}")
+        
+        with detail_col3:
+            st.metric("Rating", f"⭐ {rating}")
+        
+        with detail_col4:
+            base_amount = unit_price * quantity
+            st.metric("Base Amount", f"${base_amount:.2f}")
+    
+    with col2:
+        st.markdown("### ⏰ Time Info")
+        
+        hour = transaction_time.hour
+        time_of_day = get_time_of_day(hour)
+        
+        time_emoji = {
+            'Morning': '🌅',
+            'Afternoon': '☀️',
+            'Evening': '🌆',
+            'Night': '🌙'
+        }
+        
+        st.markdown(f"""
+            <div class="info-card">
+                <p><strong>📅 Date:</strong> {transaction_date.strftime('%B %d, %Y')}</p>
+                <p><strong>🕐 Time:</strong> {transaction_time.strftime('%I:%M %p')}</p>
+                <p><strong>{time_emoji.get(time_of_day, '⏰')} Period:</strong> {time_of_day}</p>
+                <p><strong>📆 Day:</strong> {transaction_date.strftime('%A')}</p>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    # Prediction Button
+    st.markdown("---")
+    
+    predict_col1, predict_col2, predict_col3 = st.columns([1, 2, 1])
+    
+    with predict_col2:
+        predict_button = st.button("🔮 Predict Sales", use_container_width=True)
+    
+    # Make Prediction
+    if predict_button:
+        with st.spinner('🔄 Analyzing transaction data...'):
+            # Prepare inputs
+            inputs = {
+                'branch': branch,
+                'city': city,
+                'customer_type': customer_type,
+                'gender': gender,
+                'product_line': product_line,
+                'unit_price': unit_price,
+                'quantity': quantity,
+                'payment': payment,
+                'rating': rating,
+                'date': transaction_date,
+                'time': transaction_time
+            }
+            
             try:
-                # Create input dataframe
-                input_data = pd.DataFrame({
-                    'Item_ID': [item_id],
-                    'Item_W': [item_w],
-                    'Item_Type': [item_type],
-                    'Item_MRP': [item_mrp],
-                    'Outlet_Size': [outlet_size],
-                    'Outlet_Location_Type': [outlet_location_type]
-                })
+                # Preprocess input to match training format
+                input_df = preprocess_input(inputs, training_columns)
                 
-                # Feature engineering
-                processed_data = create_features(input_data)
+                # Make prediction using the Random Forest model directly
+                prediction = model.predict(input_df)[0]
                 
-                # Display processed features (for debugging/information)
-                with st.expander("🔍 View Processed Features"):
-                    st.dataframe(processed_data, use_container_width=True)
+                # Display result
+                st.markdown("---")
+                st.markdown("## 🎯 Prediction Result")
                 
-                # Preprocess the data
-                processed_array = preprocessor.transform(processed_data)
+                result_col1, result_col2, result_col3 = st.columns([1, 2, 1])
                 
-                # Make prediction
-                prediction = model.predict(processed_array)[0]
+                with result_col2:
+                    st.markdown(f"""
+                        <div class="prediction-card">
+                            <h3 style="color: #8d99ae; margin-bottom: 10px;">Predicted Sales Amount</h3>
+                            <h1 style="font-size: 4rem; color: #e94560; margin: 20px 0;" class="pulse-animation">
+                                ${prediction:,.2f}
+                            </h1>
+                            <p style="color: #8d99ae;">
+                                Based on the provided transaction details
+                            </p>
+                        </div>
+                    """, unsafe_allow_html=True)
                 
-                # Display prediction
-                st.markdown('<div class="prediction-box">', unsafe_allow_html=True)
-                st.markdown("### Predicted Sales")
-                st.markdown(f'<div class="prediction-value">${prediction:,.2f}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                # Additional insights
+                st.markdown("### 📈 Sales Breakdown")
                 
-                # Additional information
-                st.info(f"💡 The model predicts sales of **${prediction:,.2f}** based on the provided input parameters.")
+                insight_col1, insight_col2, insight_col3 = st.columns(3)
+                
+                with insight_col1:
+                    base = unit_price * quantity
+                    st.metric("Base Amount (Price × Qty)", f"${base:.2f}")
+                
+                with insight_col2:
+                    tax = prediction * 0.05 / 1.05  # Approximate tax from total
+                    st.metric("Estimated Tax (5%)", f"${tax:.2f}")
+                
+                with insight_col3:
+                    cogs = prediction / 1.05  # Cost of goods sold
+                    st.metric("Estimated COGS", f"${cogs:.2f}")
+                
+                # Success message
+                st.success("✅ Prediction completed successfully!")
                 
             except Exception as e:
                 st.error(f"❌ Error making prediction: {str(e)}")
-                st.exception(e)
-        
-        else:
-            st.info("👈 Please fill in the input parameters in the sidebar and click 'Predict Sales' to get a prediction.")
+                st.info("💡 Please ensure all inputs are filled correctly and the model file is valid.")
+                
+                # Debug information
+                with st.expander("🔧 Debug Information"):
+                    st.write("**Error Details:**", str(e))
+                    st.write("**Expected columns count:**", len(training_columns) if training_columns else "N/A")
+                    st.write("**Model type:**", type(model).__name__ if model else "N/A")
     
-    with col2:
-        st.subheader("ℹ️ About")
+    # Footer
+    st.markdown("""
+        <div class="footer">
+            <p>🛒 Supermarket Sales Predictor | Built with Streamlit & Random Forest ML</p>
+            <p>© 2024 | Powered by Machine Learning</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Additional Information Section
+    with st.expander("ℹ️ About This Application"):
         st.markdown("""
-        This application uses a **Gradient Boosting Regressor** model 
-        to predict supermarket sales based on:
-        
-        - **Item characteristics**: ID, Weight, Type, MRP
-        - **Outlet characteristics**: Size, Location Type
-        
-        The model has been trained on historical sales data and 
-        uses advanced feature engineering techniques to provide 
-        accurate predictions.
+            ### How It Works
+            
+            This application uses a **Random Forest Regression** model trained on supermarket sales data 
+            to predict the total sales amount for a transaction.
+            
+            #### Features Used for Prediction:
+            - **Store Info:** Branch, City
+            - **Customer Info:** Customer Type (Member/Normal), Gender
+            - **Product Info:** Product Line, Unit Price, Quantity
+            - **Transaction Info:** Payment Method, Customer Rating
+            - **Temporal Features:** Date components (Day, Month, Day of Week, Hour, Time of Day)
+            - **Interaction Features:** Combined features for better predictions
+            
+            #### Model Performance:
+            - **R² Score:** ~99.75% (Cross-validated)
+            - **Algorithm:** Random Forest Regressor with 100 estimators
+            
+            #### Data Preprocessing:
+            - Categorical variables are encoded using One-Hot Encoding
+            - Numerical features are standardized using Standard Scaler
         """)
-        
-        st.markdown("---")
-        st.subheader("📝 Input Guidelines")
+    
+    with st.expander("📊 Dataset Information"):
         st.markdown("""
-        - **Item ID**: Use format like FDX01 (Food), DRX02 (Drinks), NCX03 (Non-Consumable)
-        - **Item Weight**: Enter weight in appropriate units
-        - **Item Type**: Select from the dropdown menu
-        - **Item MRP**: Enter the maximum retail price
-        - **Outlet Size**: Choose Small, Medium, or High
-        - **Outlet Location**: Select Tier 1, 2, or 3
+            ### Dataset Details
+            
+            The model was trained on a supermarket sales dataset containing **1,000 transactions** 
+            from three different branches.
+            
+            #### Branches:
+            - 🏪 **Alex** - Yangon (34%)
+            - 🏪 **Cairo** - Mandalay (33.2%)
+            - 🏪 **Giza** - Naypyitaw (32.8%)
+            
+            #### Product Lines:
+            - 👗 Fashion accessories (17.8%)
+            - 🍔 Food and beverages (17.4%)
+            - 📱 Electronic accessories (17.0%)
+            - ⚽ Sports and travel (16.6%)
+            - 🏠 Home and lifestyle (16.0%)
+            - 💄 Health and beauty (15.2%)
+            
+            #### Payment Methods:
+            - 📱 E-wallet (34.5%)
+            - 💵 Cash (34.4%)
+            - 💳 Credit card (31.1%)
         """)
 
+# ============================================
+# Run Application
+# ============================================
 if __name__ == "__main__":
     main()
-
